@@ -1,0 +1,269 @@
+# SecPlatform · 安全专项扫描与智能分析平台
+
+> 企业级一体化安全运营平台 —— 集资产测绘、漏洞扫描、弱密码检测、威胁情报、AI 安全检测与智能分析于一体。
+
+---
+
+## 📌 项目简介
+
+SecPlatform 是一个面向企业内网与互联网暴露面的安全运营平台（v4.0），采用**能力模块化 + 工作流编排 + 多工具集成 + 数据驱动分析**的架构模式，实现安全能力统一管理与自动化运行。
+
+后端基于 **FastAPI + Celery + MySQL + Redis** 构建，支持分布式任务调度；前端为纯 JS SPA，内嵌于后端服务直接访问，无需额外部署。平台内置 **LLM 智能分析师**，支持对接任意 OpenAI 兼容接口（OpenAI / Anthropic / Ollama / 本地部署），实现自动风险研判与报告生成。
+
+---
+
+## 🏗️ 技术架构
+
+```
+┌────────────────────────────────────────┐
+│  前端（原生 JS SPA）                    │
+│  仪表盘 / 资产 / 漏洞 / 报表 /          │
+│  AI检测 / 智能分析 / 策略审核 / 调度    │
+└─────────────────┬──────────────────────┘
+                  │ HTTP / REST
+┌─────────────────▼──────────────────────┐
+│  FastAPI 接口层（16 个功能路由）        │
+│  认证 · 资产 · 漏洞 · 弱密码 · FOFA   │
+│  报告 · 通知 · 情报 · 异常 · 调度      │
+│  AI安全 · 智能体 · 知识库 · 策略       │
+└─────────────────┬──────────────────────┘
+                  │
+┌─────────────────▼──────────────────────┐
+│  Celery 分布式任务队列 + Redis Broker   │
+│  asset_scan · vuln_scan · weakpass     │
+│  screenshot · analysis · report        │
+└─────────────────┬──────────────────────┘
+                  │
+┌─────────────────▼──────────────────────┐
+│  能力工具层                             │
+│  Gogo Scan · nuclei · paramiko         │
+│  FOFA API · GitHub API · NVD CVE API   │
+│  企业微信 · 飞书 · 钉钉 · Bark        │
+└─────────────────┬──────────────────────┘
+                  │
+┌─────────────────▼──────────────────────┐
+│  数据存储层                             │
+│  MySQL（主数据）· Redis（任务队列）     │
+└────────────────────────────────────────┘
+```
+
+---
+
+## ✅ 已实现功能
+
+### 🗂️ 资产管理
+- **内网存活扫描**：ICMP / TCP 双模式，基于 Gogo Scan，支持大规模 IP 段
+- **端口与服务识别**：Top1000 / 全端口 / 自定义，识别中间件、产品版本、HTTP Title
+- **资产快照与变更对比**：任意时间点快照比对，自动记录新增 / 消失 / 端口变化 / 服务变化
+- **资产生命周期维护**：自动更新 `status`（online / offline）、`first_seen`、`last_seen`
+- **高危端口资产识别**：内置 20+ 高危端口规则（SSH / RDP / Redis / MongoDB / Docker API 等）
+- **互联网暴露面探测**：FOFA API 集成，支持关键字与域名探测
+
+### 🔍 漏洞扫描
+- **专项漏洞检测**：Nacos 未授权、Swagger 接口暴露、MinIO 配置错误、微服务风险
+- **基于指纹的精准匹配**：自动根据资产服务指纹筛选适配 POC，减少无效扫描
+- **nuclei 扩展支持**：支持自定义 POC 接入
+- **漏洞全生命周期管理**：状态流转（未处理 / 处理中 / 已修复 / 误报）、CVSS 评分记录
+
+### 🔐 弱密码检测
+| 类型 | 覆盖范围 |
+|------|---------|
+| 数据库 | MySQL · PostgreSQL · Oracle · SQL Server · Redis · MongoDB · 达梦(DM) |
+| 服务 | SSH · FTP · Telnet |
+| 应用 | Web 系统登录页弱密码 |
+
+支持自定义用户名字典与密码字典。
+
+### 🤖 AI 安全检测（核心亮点）
+- **Prompt Injection 检测**：内置多组注入 Payload，自动测试目标 AI 接口是否存在提示词注入风险
+- **MCP 协议暴露检测**：扫描目标是否暴露 MCP 工具端点（`/.well-known/mcp`、`/mcp/v1/tools` 等）
+- **AI 服务发现**：自动识别目标环境中暴露的 LLM 推理服务（OpenAI API / Ollama / LM Studio 等）
+
+### 🧠 LLM 智能分析师
+- 支持对接任意 OpenAI 兼容接口（GPT / Claude / Llama / Qwen 等）
+- API Key、模型、接口地址可在平台 UI 中动态配置，无需重启服务
+- 功能：自动分析安全态势、风险研判、报告摘要生成
+
+### 📡 威胁情报集成
+- 对接 **NVD CVE 数据库** 实时查询漏洞情报
+- 内置离线高危 CVE 列表（Log4Shell / Spring4Shell / Confluence RCE 等 20+ 条）作为网络不通时的兜底
+- 根据资产服务指纹自动关联 CVE，识别潜在受影响资产
+
+### 🔎 GitHub / Gitee 信息泄露扫描
+- 支持关键字搜索 GitHub / Gitee 公开仓库
+- 内置 10+ 类敏感信息正则规则：API Key、数据库连接串、云服务密钥（AWS / 阿里云 / Google）、Bearer Token 等
+- 自动识别泄露类型与严重等级
+
+### 🚨 异常检测
+- 对比最近两次资产快照，自动检测变化
+- 检测场景：高危端口新增、资产异常上线 / 离线、服务变更
+- 异常事件写入数据库，支持状态确认与忽略
+
+### 📊 自动化安全报告
+- 一键生成日报 / 周报 / 自定义报告
+- 报告内容：资产存活统计、端口变化、高危端口分布、漏洞汇总、弱密码统计、风险趋势
+
+### 🔔 消息推送
+- 支持：**企业微信** · **飞书** · **钉钉** · **Bark**
+- 推送场景：任务开始 / 完成 / 异常、高危漏洞告警、安全报告
+
+### ⏱️ 定时调度
+- 内置调度引擎，支持 Interval / Daily / Weekly 三种模式
+- 支持指定执行时间（如每天 02:00）和指定星期
+- 可在 UI 中创建、启停、查看执行历史
+
+### 📚 知识库
+- 安全文档统一管理，支持分类与标签
+- 支持 AI 辅助查询与分析
+
+### 🖥️ 安全设备监控
+- 记录防火墙等安全设备基本信息与连接状态
+- CPU / 内存 / 磁盘使用率监控
+
+### 📋 防火墙策略审核
+- 策略录入与风险分析
+- 自动识别高风险策略（如全端口放行、允许任意源访问高危端口）
+- 输出风险描述与整改建议
+
+---
+
+## 📁 项目结构
+
+```
+SecPlatform/
+├── main.py                  # FastAPI 应用入口，自动拉起 Redis & Celery
+├── celery_app.py            # Celery 配置
+├── .env                     # 环境变量配置
+├── core/
+│   ├── config.py            # 配置加载
+│   ├── core_scanner.py      # 资产端口扫描（DNS 预解析 + 并发优化）
+│   ├── vuln_scanner.py      # 漏洞扫描（线程本地 Session + 超时优化）
+│   ├── weakpass_scanner.py  # 弱密码扫描
+│   ├── anomaly_detector.py  # 异常检测
+│   ├── fofa_client.py       # FOFA API 客户端
+│   ├── github_scanner.py    # GitHub/Gitee 信息泄露扫描
+│   ├── threat_intel.py      # 威胁情报（NVD + 离线库）
+│   ├── notifier.py          # 消息推送
+│   ├── report_generator.py  # 安全报告生成
+│   ├── llm_client.py        # LLM 客户端（OpenAI 兼容）
+│   └── task_scheduler.py    # 定时任务调度引擎
+├── routers/                 # FastAPI 路由（16 个模块）
+│   ├── auth.py              # JWT 认证
+│   ├── assets.py            # 资产管理
+│   ├── scan.py              # 扫描任务
+│   ├── vulns.py             # 漏洞管理
+│   ├── fofa.py              # FOFA 探测
+│   ├── threat_intel.py      # 威胁情报
+│   ├── github_scan.py       # 信息泄露扫描
+│   ├── anomaly.py           # 异常检测
+│   ├── reports.py           # 报告管理
+│   ├── notify.py            # 推送配置
+│   ├── scheduler.py         # 定时任务
+│   ├── knowledge.py         # 知识库
+│   ├── devices.py           # 安全设备
+│   ├── policy.py            # 策略审核
+│   ├── ai_security.py       # AI 安全检测
+│   └── agent.py             # LLM 智能分析师
+├── db/
+│   ├── models.py            # SQLAlchemy 数据模型（17 张表）
+│   └── crud.py              # 数据库操作封装
+├── static/                  # 前端（原生 JS SPA）
+│   ├── index.html
+│   ├── css/main.css
+│   └── js/pages/            # 21 个功能页面
+└── dicts/                   # 弱密码字典
+    ├── users.txt
+    └── pass.txt
+```
+
+---
+
+## 🗄️ 数据模型（17 张表）
+
+| 表名 | 用途 |
+|------|------|
+| `assets` | 资产信息 |
+| `asset_snapshots` | 资产扫描快照 |
+| `asset_history` | 资产变化历史 |
+| `vulnerabilities` | 漏洞记录 |
+| `scan_tasks` | 扫描任务 |
+| `reports` | 安全报告 |
+| `notify_configs` | 推送渠道配置 |
+| `fofa_results` | FOFA 探测结果 |
+| `threat_intel_results` | 威胁情报关联结果 |
+| `github_leak_results` | 代码泄露扫描结果 |
+| `anomaly_events` | 异常检测事件 |
+| `scheduled_tasks` | 定时任务 |
+| `knowledge_docs` | 知识库文档 |
+| `security_devices` | 安全设备 |
+| `firewall_policies` | 防火墙策略 |
+| `policy_audit_results` | 策略审核结果 |
+| `app_settings` | 系统配置（含 LLM Key） |
+
+---
+
+## 🚀 快速开始
+
+### 环境依赖
+
+- Python 3.10+
+- MySQL 5.7+ / 8.0+
+- Redis（启动后端时可自动拉起，也可手动运行）
+- nuclei（漏洞扫描，需加入 PATH）
+- Gogo（资产扫描，需加入 PATH）
+
+### 安装与启动
+
+```bash
+git clone https://github.com/yourname/SecPlatform.git
+cd SecPlatform
+
+pip install -r requirements.txt
+
+# 编辑配置
+cp .env.example .env
+# 修改 DB_URL、SECRET_KEY，按需填写 FOFA / GitHub Token
+
+# 启动（自动拉起 Redis 和 Celery Worker）
+python main.py
+# 或
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+访问 `http://127.0.0.1:8000`，默认账号：`admin / admin@2025`
+
+> Windows 用户可直接运行 `start.bat`
+
+### 关键配置项（`.env`）
+
+| 配置项 | 说明 | 必填 |
+|--------|------|------|
+| `DB_URL` | MySQL 连接串 | ✅ |
+| `SECRET_KEY` | JWT 签名密钥 | ✅ |
+| `FOFA_EMAIL` / `FOFA_API_KEY` | FOFA 互联网探测 | 可选 |
+| `GITHUB_TOKEN` | GitHub 信息泄露扫描 | 可选 |
+| `GITEE_TOKEN` | Gitee 信息泄露扫描 | 可选 |
+
+> LLM 相关配置（API Key、模型、接口地址）可在平台 UI「系统设置」中在线修改。
+
+---
+
+## 🗺️ Roadmap
+
+| 功能 | 状态 |
+|------|------|
+| Neo4j 图分析（资产关系 / 攻击路径可视化） | 📋 规划中 |
+| 截图功能（Web 资产页面截图） | 📋 规划中 |
+| 前端 React 重构 | 📋 规划中 |
+
+---
+
+## ⚠️ 免责声明
+
+本工具仅供授权的安全测试与企业内部安全运营使用。**请勿对未授权目标使用本平台的任何扫描功能。** 使用者需自行承担一切法律责任。
+
+---
+
+## 📄 License
+
+MIT License
